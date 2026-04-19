@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-
-from db import get_connection   # ✅ FIXED
+from db import get_connection   # Render-safe DB connector
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -42,6 +41,7 @@ def register():
 
         except Exception as e:
             conn.rollback()
+            print("REGISTER ERROR:", e)
             flash("Email already registered or error occurred.", "danger")
 
         finally:
@@ -79,14 +79,13 @@ def login():
             session['user_name'] = user[1]
             session['role'] = user[3]
 
-            if user[3] == 'donor':
-                return redirect(url_for('donor.dashboard'))
-            elif user[3] == 'ngo':
-                return redirect(url_for('ngo.dashboard'))
-            elif user[3] == 'admin':
-                return redirect(url_for('admin.dashboard'))
+            role_redirects = {
+                'donor': 'donor.dashboard',
+                'ngo': 'ngo.dashboard',
+                'admin': 'admin.dashboard'
+            }
 
-            return redirect(url_for('auth.landing'))
+            return redirect(url_for(role_redirects.get(user[3], 'auth.landing')))
 
         flash("Invalid email or password", "danger")
 
