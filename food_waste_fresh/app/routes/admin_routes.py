@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
 from datetime import datetime, timedelta
 
-from app.models.db import get_connection
+from db import get_connection
 from app.utils.notifications import add_notification
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
