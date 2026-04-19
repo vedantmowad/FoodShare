@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, send_file
 from datetime import datetime
 from math import radians, cos, sin, asin, sqrt
-from app.models.db import get_connection
+from db import get_connection
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 )
