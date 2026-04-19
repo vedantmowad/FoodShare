@@ -1,14 +1,11 @@
 from flask import Flask
 from app.config import Config
-from flask_mysqldb import MySQL
-
-mysql = MySQL()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    mysql.init_app(app)
+    # NO DATABASE INITIALIZATION HERE
 
     from app.routes.auth_routes import auth_bp
     from app.routes.donor_routes import donor_bp
