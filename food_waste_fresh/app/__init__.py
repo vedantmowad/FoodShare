@@ -5,9 +5,9 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # initialize DB
+    # ❌ DO NOT initialize MySQL here (remove mysql.init_app)
 
-    # import blueprints INSIDE factory
+    # import blueprints
     from app.routes.auth_routes import auth_bp
     from app.routes.donor_routes import donor_bp
     from app.routes.ngo_routes import ngo_bp
