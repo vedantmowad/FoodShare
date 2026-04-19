@@ -1,19 +1,12 @@
 import os
-import psycopg2
-from urllib.parse import urlparse
+import mysql.connector
+
 
 def get_connection():
-    db_url = os.environ.get("DATABASE_URL")
-
-    if not db_url:
-        raise Exception("DATABASE_URL not found")
-
-    result = urlparse(db_url)
-
-    return psycopg2.connect(
-        database=result.path[1:],
-        user=result.username,
-        password=result.password,
-        host=result.hostname,
-        port=result.port
+    return mysql.connector.connect(
+        host=os.environ.get("MYSQL_HOST"),
+        user=os.environ.get("MYSQL_USER"),
+        password=os.environ.get("MYSQL_PASSWORD"),
+        database=os.environ.get("MYSQL_DB"),
+        port=int(os.environ.get("MYSQL_PORT", 3306))
     )
