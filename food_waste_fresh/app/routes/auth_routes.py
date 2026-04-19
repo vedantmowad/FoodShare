@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import get_connection   # Render-safe DB connector
+from app.models.db import get_connection
 
 auth_bp = Blueprint('auth', __name__)
 
