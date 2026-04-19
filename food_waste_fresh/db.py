@@ -1,21 +1,11 @@
-from flask import Flask
-from app.config import Config
+import os
+import mysql.connector
 
-def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
-
-    # Register Blueprints
-    from app.routes.auth_routes import auth_bp
-    from app.routes.donor_routes import donor_bp
-    from app.routes.ngo_routes import ngo_bp
-    from app.routes.admin_routes import admin_bp
-    from app.chatbot import chatbot_bp
-
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(donor_bp)
-    app.register_blueprint(ngo_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(chatbot_bp)
-
-    return app
+def get_connection():
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME"),
+        port=int(os.getenv("DB_PORT", 3306))
+    )
