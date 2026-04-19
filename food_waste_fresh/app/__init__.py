@@ -1,20 +1,21 @@
 from flask import Flask
 from app.config import Config
+from flask_mysqldb import MySQL
+
+mysql = MySQL()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # ❌ DO NOT initialize MySQL here (remove mysql.init_app)
+    mysql.init_app(app)
 
-    # import blueprints
     from app.routes.auth_routes import auth_bp
     from app.routes.donor_routes import donor_bp
     from app.routes.ngo_routes import ngo_bp
     from app.routes.admin_routes import admin_bp
     from app.chatbot import chatbot_bp
 
-    # register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(donor_bp)
     app.register_blueprint(ngo_bp)
