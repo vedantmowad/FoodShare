@@ -3,7 +3,10 @@ from datetime import datetime, timedelta
 from app.models.db import mysql
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 from app.utils.notifications import add_notification
+from db import get_connection
 
+conn = get_connection()
+cursor = conn.cursor()
 @admin_bp.route('/dashboard')
 def dashboard():
     if 'user_id' not in session or session.get('role') != 'admin':
