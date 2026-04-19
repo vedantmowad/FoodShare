@@ -3,8 +3,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
 import io
-
-from db import get_connection   # ✅ FIXED
+from app.models.db import get_connection  # ✅ FIXED
 
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
