@@ -7,7 +7,6 @@ def create_app():
     app.config.from_object(Config)
 
     # initialize DB
-    mysql.init_app(app)
 
     # import blueprints INSIDE factory
     from app.routes.auth_routes import auth_bp
