@@ -192,7 +192,7 @@ def accept_donation(donation_id):
         WHERE id=%s AND status='Pending'
     """, (session['user_id'], donation_id))
 
-    mysql.connection.commit()
+    conn.commit()
 
     cur.execute("SELECT full_name FROM users WHERE id=%s", (donor_id,))
     donor = cur.fetchone()
