@@ -424,17 +424,18 @@ def impact():
 
     conn = get_connection()
     cur = conn.cursor()
+
     # ---------------- KPIs ----------------
     cur.execute(f"""
         SELECT 
             COUNT(*),
             SUM(CASE WHEN status='Completed' THEN 1 ELSE 0 END),
-            SUM(quantity_kg)
+            COALESCE(SUM(quantity_kg), 0)
         FROM donations
         WHERE donor_id=%s {date_filter}
     """, tuple(params))
+
     total, completed, total_kg = cur.fetchone()
-    total_kg = total_kg or 0
     people_fed = int(total_kg * 3)
 
     # ---------------- STATUS PIE ----------------
@@ -448,31 +449,35 @@ def impact():
 
     # ---------------- DAILY ----------------
     cur.execute(f"""
-        SELECT DATE(created_at), COUNT(*)
+        SELECT DATE(created_at) AS day, COUNT(*)
         FROM donations
         WHERE donor_id=%s {date_filter}
         GROUP BY DATE(created_at)
-        ORDER BY DATE(created_at)
+        ORDER BY day
     """, tuple(params))
     daily_data = cur.fetchall()
 
-    # ---------------- WEEKLY ----------------
+    # ---------------- WEEKLY (FIXED) ----------------
     cur.execute(f"""
-        SELECT CONCAT(YEAR(created_at), '-W', WEEK(created_at)), COUNT(*)
+        SELECT 
+            YEARWEEK(created_at, 1) AS year_week,
+            COUNT(*)
         FROM donations
         WHERE donor_id=%s {date_filter}
-        GROUP BY YEAR(created_at), WEEK(created_at)
-        ORDER BY YEAR(created_at), WEEK(created_at)
+        GROUP BY YEARWEEK(created_at, 1)
+        ORDER BY year_week
     """, tuple(params))
     weekly_data = cur.fetchall()
 
-    # ---------------- MONTHLY ----------------
+    # ---------------- MONTHLY (FIXED) ----------------
     cur.execute(f"""
-        SELECT DATE_FORMAT(created_at, '%%b %%Y'), COUNT(*)
+        SELECT 
+            DATE_FORMAT(created_at, '%%Y-%%m') AS month,
+            COUNT(*)
         FROM donations
         WHERE donor_id=%s {date_filter}
         GROUP BY DATE_FORMAT(created_at, '%%Y-%%m')
-        ORDER BY MIN(created_at)
+        ORDER BY month
     """, tuple(params))
     monthly_data = cur.fetchall()
 
@@ -486,6 +491,7 @@ def impact():
     table_data = cur.fetchall()
 
     cur.close()
+    conn.close()
 
     return render_template(
         'donor/impact.html',
@@ -501,7 +507,6 @@ def impact():
         start_date=start_date,
         end_date=end_date
     )
-
 @donor_bp.route('/notifications')
 def notifications():
     if 'user_id' not in session or session.get('role') != 'donor':
