@@ -23,7 +23,8 @@ def dashboard():
     if 'user_id' not in session or session.get('role') != 'ngo':
         return redirect(url_for('auth.login'))
 
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
     cur.execute("SELECT COUNT(*) FROM donations WHERE status='Pending'")
     pending = cur.fetchone()[0]
@@ -94,7 +95,8 @@ def available_donations():
         query += " AND urgency=%s"
         params.append(urgency)
 
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
     cur.execute(query, params)
     rows = cur.fetchall()
     cur.close()
@@ -166,7 +168,8 @@ def accept_donation(donation_id):
     if 'user_id' not in session or session.get('role') != 'ngo':
         return redirect(url_for('auth.login'))
 
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
     cur.execute("SELECT full_name FROM users WHERE id=%s", (session['user_id'],))
     ngo = cur.fetchone()
@@ -204,7 +207,7 @@ def accept_donation(donation_id):
         "success"
     ))
 
-    mysql.connection.commit()
+    conn.commit()
     cur.close()
 
     return render_template('ngo/accept_success.html', donation_id=donation_id)
