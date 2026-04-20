@@ -190,7 +190,8 @@ import io
 
 @donor_bp.route('/download_receipt/<int:donation_id>')
 def download_receipt(donation_id):
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
     cur.execute("""
         SELECT 
@@ -421,8 +422,8 @@ def impact():
         date_filter = " AND DATE(created_at) BETWEEN %s AND %s"
         params.extend([start_date, end_date])
 
-    cur = mysql.connection.cursor()
-
+    conn = get_connection()
+    cur = conn.cursor()
     # ---------------- KPIs ----------------
     cur.execute(f"""
         SELECT 
@@ -506,7 +507,8 @@ def notifications():
     if 'user_id' not in session or session.get('role') != 'donor':
         return redirect(url_for('auth.login'))
 
-    cur = mysql.connection.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
     # 1. Get notifications FIRST
     cur.execute("""
