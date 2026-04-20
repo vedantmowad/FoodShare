@@ -179,45 +179,189 @@ def cancel_donation(donation_id):
 
     return redirect(url_for('donor.my_donations'))
     
+from flask import send_file
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+)
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+import io
+
 @donor_bp.route('/download_receipt/<int:donation_id>')
 def download_receipt(donation_id):
-    if 'user_id' not in session:
-        return redirect(url_for('auth.login'))
-
-    conn = get_connection()
-    cur = conn.cursor()
+    cur = mysql.connection.cursor()
 
     cur.execute("""
-        SELECT food_title, quantity_kg, city, status, created_at
-        FROM donations
-        WHERE id=%s AND donor_id=%s
-    """, (donation_id, session['user_id']))
+        SELECT 
+            d.id, u.full_name, d.food_title, d.food_type, d.food_category,
+            d.quantity_kg, d.servings,
+            d.prepared_time, d.expiry_time,
+            d.pickup_address, d.city, d.state, d.pincode,
+            d.contact_name, d.contact_phone,
+            d.packaging_condition, d.temperature_condition, d.hygiene_checked,
+            d.created_at
+        FROM donations d
+        JOIN users u ON d.donor_id = u.id
+        WHERE d.id = %s
+    """, (donation_id,))
 
-    donation = cur.fetchone()
-    cur.close()
-    conn.close()
+    d = cur.fetchone()
 
-    if not donation:
+    if not d:
         return "Donation not found", 404
 
     buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=letter)
 
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(200, 750, "FoodShare Donation Receipt")
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=30, leftMargin=30,
+        topMargin=30, bottomMargin=30
+    )
 
-    pdf.setFont("Helvetica", 12)
-    pdf.drawString(50, 700, f"Food: {donation[0]}")
-    pdf.drawString(50, 680, f"Quantity: {donation[1]} kg")
-    pdf.drawString(50, 660, f"City: {donation[2]}")
-    pdf.drawString(50, 640, f"Status: {donation[3]}")
-    pdf.drawString(50, 620, f"Date: {donation[4]}")
+    styles = getSampleStyleSheet()
+    elements = []
 
-    pdf.save()
+    # ================= HEADER =================
+    logo = None
+
+    logo_path = os.path.join(
+        current_app.root_path,
+        'static',
+        'images',
+        'logo.png'
+    )
+
+    # 🔥 CHECK FILE EXISTS FIRST (IMPORTANT)
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=60, height=60)
+    else:
+        logo = Paragraph("<b>FoodShare</b>", styles['Title'])
+
+    title = Paragraph(
+        "<font size=20 color='green'><b>FoodShare</b></font><br/>"
+        "<font size=12 color='grey'>Donation Receipt</font>",
+        styles['Normal']
+    )
+
+    header = Table([[logo, title]], colWidths=[70, 400])
+    header.setStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE')])
+
+    elements.append(header)
+    elements.append(Spacer(1, 10))
+
+    # Green Divider
+    divider = Table([[""]], colWidths=[500])
+    divider.setStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.green),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3)
+    ])
+    elements.append(divider)
+    elements.append(Spacer(1, 15))
+
+    # ================= RECEIPT INFO =================
+    info = Table([
+        ["Receipt ID:", d[0]],
+        ["Date:", str(d[18])]
+    ], colWidths=[120, 250])
+
+    info.setStyle([
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.grey),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold')
+    ])
+
+    elements.append(info)
+    elements.append(Spacer(1, 15))
+
+    # ================= TABLE STYLE FUNCTION =================
+    def styled_table(data):
+        table = Table(data, colWidths=[150, 350])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 8)
+        ]))
+        return table
+
+    # ================= DONOR =================
+    elements.append(Paragraph("<font color='darkgreen'><b>Donor Details</b></font>", styles['Heading3']))
+    elements.append(styled_table([
+        ["Name", d[1]],
+        ["Contact", f"{d[13]} ({d[14]})"]
+    ]))
+
+    # ================= FOOD =================
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("<font color='darkgreen'><b>Food Details</b></font>", styles['Heading3']))
+    elements.append(styled_table([
+        ["Title", d[2]],
+        ["Type", d[3]],
+        ["Category", d[4]],
+        ["Quantity", f"<b>{d[5]} kg</b>"],
+        ["Servings", d[6] or "N/A"]
+    ]))
+
+    # ================= LOCATION =================
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("<font color='darkgreen'><b>Pickup Location</b></font>", styles['Heading3']))
+    elements.append(styled_table([
+        ["Address", f"{d[9]}, {d[10]}, {d[11]} - {d[12]}"]
+    ]))
+
+    # ================= TIME =================
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("<font color='darkgreen'><b>Time Details</b></font>", styles['Heading3']))
+    elements.append(styled_table([
+        ["Prepared Time", str(d[7])],
+        ["Expiry Time", str(d[8])]
+    ]))
+
+    # ================= SAFETY =================
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("<font color='darkgreen'><b>Food Safety & Handling</b></font>", styles['Heading3']))
+    elements.append(styled_table([
+        ["Packaging", d[15]],
+        ["Temperature", d[16]],
+        ["Hygiene Checked", "Yes" if d[17] else "No"]
+    ]))
+
+    # ================= IMPACT =================
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("<font color='darkgreen'><b>Impact</b></font>", styles['Heading3']))
+    people = int(d[5] * 3)
+    elements.append(styled_table([
+        ["Estimated People Fed", f"{people}"]
+    ]))
+
+    # ================= FOOTER =================
+    elements.append(Spacer(1, 20))
+
+    footer_line = Table([[""]], colWidths=[500])
+    footer_line.setStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+        ('TOPPADDING', (0, 0), (-1, -1), 1)
+    ])
+
+    elements.append(footer_line)
+    elements.append(Spacer(1, 8))
+
+    elements.append(Paragraph(
+        "<i>Thank you for contributing to reduce food waste and support the community.</i>",
+        styles['Normal']
+    ))
+
+    # ================= BUILD =================
+    doc.build(elements)
     buffer.seek(0)
 
-    return send_file(buffer, as_attachment=True, download_name="receipt.pdf", mimetype='application/pdf')
-
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"FoodShare_Receipt_{donation_id}.pdf",
+        mimetype='application/pdf'
+    )
+    
 @donor_bp.route('/edit-donation/<int:donation_id>', methods=['GET', 'POST'])
 def edit_donation(donation_id):
     if 'user_id' not in session:
@@ -254,30 +398,139 @@ def edit_donation(donation_id):
 
     return render_template("donor/edit_donation.html", donation=donation)
 
+from flask import request
+from datetime import datetime
+
+from flask import request
+
+from flask import request, redirect, url_for, session, render_template
+
 @donor_bp.route('/impact')
 def impact():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'donor':
         return redirect(url_for('auth.login'))
 
-    conn = get_connection()
-    cur = conn.cursor()
+    donor_id = session['user_id']
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
 
-    cur.execute("""
-        SELECT SUM(quantity_kg) FROM donations
-        WHERE donor_id=%s AND status='Completed'
-    """, (session['user_id'],))
+    date_filter = ""
+    params = [donor_id]
 
-    kg = cur.fetchone()[0] or 0
-    people_fed = int(kg * 3)
+    if start_date and end_date:
+        date_filter = " AND DATE(created_at) BETWEEN %s AND %s"
+        params.extend([start_date, end_date])
+
+    cur = mysql.connection.cursor()
+
+    # ---------------- KPIs ----------------
+    cur.execute(f"""
+        SELECT 
+            COUNT(*),
+            SUM(CASE WHEN status='Completed' THEN 1 ELSE 0 END),
+            SUM(quantity_kg)
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+    """, tuple(params))
+    total, completed, total_kg = cur.fetchone()
+    total_kg = total_kg or 0
+    people_fed = int(total_kg * 3)
+
+    # ---------------- STATUS PIE ----------------
+    cur.execute(f"""
+        SELECT status, COUNT(*)
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+        GROUP BY status
+    """, tuple(params))
+    status_data = cur.fetchall()
+
+    # ---------------- DAILY ----------------
+    cur.execute(f"""
+        SELECT DATE(created_at), COUNT(*)
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at)
+    """, tuple(params))
+    daily_data = cur.fetchall()
+
+    # ---------------- WEEKLY ----------------
+    cur.execute(f"""
+        SELECT CONCAT(YEAR(created_at), '-W', WEEK(created_at)), COUNT(*)
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+        GROUP BY YEAR(created_at), WEEK(created_at)
+        ORDER BY YEAR(created_at), WEEK(created_at)
+    """, tuple(params))
+    weekly_data = cur.fetchall()
+
+    # ---------------- MONTHLY ----------------
+    cur.execute(f"""
+        SELECT DATE_FORMAT(created_at, '%%b %%Y'), COUNT(*)
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+        GROUP BY DATE_FORMAT(created_at, '%%Y-%%m')
+        ORDER BY MIN(created_at)
+    """, tuple(params))
+    monthly_data = cur.fetchall()
+
+    # ---------------- TABLE ----------------
+    cur.execute(f"""
+        SELECT id, food_title, quantity_kg, status, created_at
+        FROM donations
+        WHERE donor_id=%s {date_filter}
+        ORDER BY created_at DESC
+    """, tuple(params))
+    table_data = cur.fetchall()
 
     cur.close()
-    conn.close()
 
-    return render_template("donor/impact.html", kg=kg, people_fed=people_fed)
+    return render_template(
+        'donor/impact.html',
+        total=total,
+        completed=completed,
+        total_kg=total_kg,
+        people_fed=people_fed,
+        status_data=status_data,
+        daily_data=daily_data,
+        weekly_data=weekly_data,
+        monthly_data=monthly_data,
+        table_data=table_data,
+        start_date=start_date,
+        end_date=end_date
+    )
 
 @donor_bp.route('/notifications')
 def notifications():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'donor':
         return redirect(url_for('auth.login'))
 
-    return render_template("donor/notifications.html")
+    cur = mysql.connection.cursor()
+
+    # 1. Get notifications FIRST
+    cur.execute("""
+        SELECT message, type, created_at, is_read
+        FROM notifications
+        WHERE user_id=%s
+        ORDER BY created_at DESC
+    """, (session['user_id'],))
+
+    notifications = cur.fetchall()
+
+    # 2. Get unread count SECOND
+    cur.execute("""
+        SELECT COUNT(*) 
+        FROM notifications 
+        WHERE user_id=%s AND is_read=0
+    """, (session['user_id'],))
+
+    unread_count = cur.fetchone()[0]
+
+    cur.close()
+
+    return render_template(
+        'donor/notifications.html',
+        notifications=notifications,
+        unread_count=unread_count
+    )
