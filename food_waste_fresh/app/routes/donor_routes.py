@@ -178,3 +178,106 @@ def cancel_donation(donation_id):
     conn.close()
 
     return redirect(url_for('donor.my_donations'))
+    
+@donor_bp.route('/download_receipt/<int:donation_id>')
+def download_receipt(donation_id):
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT food_title, quantity_kg, city, status, created_at
+        FROM donations
+        WHERE id=%s AND donor_id=%s
+    """, (donation_id, session['user_id']))
+
+    donation = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not donation:
+        return "Donation not found", 404
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(200, 750, "FoodShare Donation Receipt")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, 700, f"Food: {donation[0]}")
+    pdf.drawString(50, 680, f"Quantity: {donation[1]} kg")
+    pdf.drawString(50, 660, f"City: {donation[2]}")
+    pdf.drawString(50, 640, f"Status: {donation[3]}")
+    pdf.drawString(50, 620, f"Date: {donation[4]}")
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(buffer, as_attachment=True, download_name="receipt.pdf", mimetype='application/pdf')
+
+@donor_bp.route('/edit-donation/<int:donation_id>', methods=['GET', 'POST'])
+def edit_donation(donation_id):
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if request.method == 'POST':
+        cur.execute("""
+            UPDATE donations
+            SET food_title=%s, quantity_kg=%s, expiry_time=%s
+            WHERE id=%s AND donor_id=%s
+        """, (
+            request.form['food_title'],
+            request.form['quantity_kg'],
+            request.form['expiry_time'],
+            donation_id,
+            session['user_id']
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return redirect(url_for('donor.my_donations'))
+
+    cur.execute("SELECT * FROM donations WHERE id=%s AND donor_id=%s",
+                (donation_id, session['user_id']))
+    donation = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return render_template("donor/edit_donation.html", donation=donation)
+
+@donor_bp.route('/impact')
+def impact():
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT SUM(quantity_kg) FROM donations
+        WHERE donor_id=%s AND status='Completed'
+    """, (session['user_id'],))
+
+    kg = cur.fetchone()[0] or 0
+    people_fed = int(kg * 3)
+
+    cur.close()
+    conn.close()
+
+    return render_template("donor/impact.html", kg=kg, people_fed=people_fed)
+
+@donor_bp.route('/notifications')
+def notifications():
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    return render_template("donor/notifications.html")
