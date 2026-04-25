@@ -299,7 +299,7 @@ def download_receipt(donation_id):
         ["Title", d[2]],
         ["Type", d[3]],
         ["Category", d[4]],
-        ["Quantity", f"<b>{d[5]} kg</b>"],
+        ["Quantity", f"{d[5]} kg"],
         ["Servings", d[6] or "N/A"]
     ]))
 
