@@ -61,7 +61,7 @@ def login():
         password = request.form['password']
 
         conn = get_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(buffered=True)
 
         cur.execute("""
             SELECT id, full_name, password, role
@@ -70,7 +70,8 @@ def login():
         """, (email,))
 
         user = cur.fetchone()
-
+        cur.fetchall()
+        
         cur.close()
         conn.close()
 
