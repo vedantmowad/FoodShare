@@ -9,8 +9,9 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 
+import requests
+from reportlab.platypus import Image
 import io
-import urllib.request
 
 ngo_bp = Blueprint('ngo', __name__, url_prefix='/ngo')
 
@@ -506,37 +507,36 @@ def download_report(donation_id):
         ["Address", address]
     ])
 
-    # ================= REAL MAP (OpenStreetMap) =================
-    from reportlab.platypus import Image
-    import urllib.request
-    import io
+# ================= REAL MAP (OpenStreetMap) =================
+from reportlab.platypus import Image
+import io
+import requests
 
-    lat = d[9]
-    lng = d[10]
+lat = d[9]
+lng = d[10]
 
-    if lat and lng:
-        try:
-            lat = float(lat)
-            lng = float(lng)
-            # OpenStreetMap static map URL
-            map_url = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat},{lng}&zoom=15&size=600x300&markers={lat},{lng},red-pushpin"
+if lat and lng:
+    try:
+        lat = float(lat)
+        lng = float(lng)
 
-            # Download image directly into memory
-            response = urllib.request.urlopen(map_url)
-            img_data = response.read()
-            img_buffer = io.BytesIO(img_data)
+        map_url = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat},{lng}&zoom=15&size=600x300&markers={lat},{lng},red-pushpin"
 
-            # Add map to PDF
-            elements.append(Paragraph(
-                "<font color='darkgreen'><b>Pickup Location Map</b></font>",
-                styles['Heading3']
-            ))
-            elements.append(Spacer(1, 10))
-            elements.append(Image(img_buffer, width=450, height=250))
+        response = requests.get(map_url, timeout=5)
+        response.raise_for_status()
 
-        except Exception as e:
-            print("Error downloading map:", e)
-            elements.append(Paragraph("Map could not be loaded", styles['Normal']))
+        img_buffer = io.BytesIO(response.content)
+
+        elements.append(Paragraph(
+            "<font color='darkgreen'><b>Pickup Location Map</b></font>",
+            styles['Heading3']
+        ))
+        elements.append(Spacer(1, 10))
+        elements.append(Image(img_buffer, width=450, height=250))
+
+    except Exception as e:
+        print("Error downloading map:", e)
+        elements.append(Paragraph("Map could not be loaded", styles['Normal']))
     # ================= IMPACT =================
     people = int(d[3] * 3)
     section("Impact Analysis", [
