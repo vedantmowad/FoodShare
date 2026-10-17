@@ -1,14 +1,13 @@
 name: Keep FoodShare Alive
 
-on:
-schedule:
-- cron: "*/10 * * * *"
-workflow_dispatch:
+'on':
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
 
 jobs:
-ping:
-runs-on: ubuntu-latest
-steps:
-- name: Ping FoodShare
-run: |
-curl -fSs --max-time 60 https://foodshare-10.onrender.com/health
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping FoodShare
+        run: curl -fSs --max-time 60 https://foodshare-10.onrender.com/health
