@@ -12,9 +12,6 @@ auth_bp = Blueprint('auth', __name__)
 def landing():
     return render_template('landing.html')
 
-@app.route("/health")
-def health():
-    return {"status": "ok"}, 200
 # =========================
 # REGISTER
 # =========================
