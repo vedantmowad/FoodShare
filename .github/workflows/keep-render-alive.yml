@@ -12,8 +12,5 @@ runs-on: ubuntu-latest
 ```
 steps:
   - name: Check FoodShare Health
-    run: |
-      response=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 https://foodshare-10.onrender.com/health
-      echo "HTTP Status: $response"
-      test "$response" = "200"
+    run: curl -fSs --max-time 60 https://foodshare-10.onrender.com/health
 ```
